@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from homeassistant.config_entries import ConfigSubentry
 from homeassistant.const import CONF_DEVICE_ID
 from homeassistant.core import callback
 from homeassistant.helpers.device_registry import DeviceInfo
@@ -20,7 +19,11 @@ from .const import (
     SIGNAL_AVAILABILITY,
     SIGNAL_HANDLE_EVENT,
 )
-from .hub import RflinkCeConfigEntry
+
+if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigSubentry
+
+    from .hub import RflinkCeConfigEntry
 
 EVENT_BUTTON_PRESSED = "rflink_ce_button_pressed"
 
@@ -74,7 +77,8 @@ class RflinkCeEntity(Entity):
         )
 
     @callback
-    def _async_availability_changed(self, available: bool) -> None:
+    def _async_availability_changed(self, available: bool) -> None:  # noqa: FBT001
+        # ponytail: dispatcher calls this positionally, can't make keyword-only
         self._attr_available = available
         self.async_write_ha_state()
 
@@ -97,6 +101,7 @@ class RflinkCeEntity(Entity):
     async def _async_send_command(self, command: str) -> None:
         """Send a command for this Device to the gateway."""
         repetitions = (
-            self.subentry.data.get(CONF_SIGNAL_REPETITIONS) or DEFAULT_SIGNAL_REPETITIONS
+            self.subentry.data.get(CONF_SIGNAL_REPETITIONS)
+            or DEFAULT_SIGNAL_REPETITIONS
         )
         await self.hub.async_send_command(self._device_id, command, repetitions)

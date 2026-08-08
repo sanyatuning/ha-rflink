@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
-from homeassistant.core import HomeAssistant
+from typing import TYPE_CHECKING
+
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import issue_registry as ir
 
 from .const import DOMAIN
-from .hub import RflinkCeConfigEntry, RflinkHub
+from .hub import RflinkHub
+
+if TYPE_CHECKING:
+    from homeassistant.core import HomeAssistant
+
+    from .hub import RflinkCeConfigEntry
 
 PLATFORMS = ["cover", "sensor"]
 

@@ -4,18 +4,18 @@ from __future__ import annotations
 
 from fnmatch import fnmatch
 from types import MappingProxyType
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
-
 from homeassistant.components.repairs import RepairsFlow
 from homeassistant.config_entries import ConfigSubentry
 from homeassistant.const import CONF_DEVICE_ID, CONF_NAME
-from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.selector import SelectSelector, SelectSelectorConfig
 
+from .config_flow import _split
 from .const import (
     CONF_ALIASES,
     CONF_DOWN_TIME,
@@ -34,7 +34,9 @@ from .const import (
     SIGNAL_NEW_DEVICE,
     SUBENTRY_TYPE_DEVICE,
 )
-from .config_flow import _split
+
+if TYPE_CHECKING:
+    from homeassistant.core import HomeAssistant
 
 COVER_ID_PATTERNS = ("*motor*", "*cover*", "*shutter*", "*blind*", "*roll*")
 
@@ -68,9 +70,7 @@ class UnclassifiedDeviceRepairFlow(RepairsFlow):
         self._suggested_domain = _suggest_domain(raw_data)
         self._debug_info = _format_debug_info(raw_data)
 
-    async def async_step_init(
-        self, user_input: dict[str, Any] | None = None
-    ) -> Any:
+    async def async_step_init(self, _user_input: dict[str, Any] | None = None) -> Any:
         """Let the user choose to classify the device or ignore it for good."""
         return self.async_show_menu(
             step_id="init",
@@ -79,7 +79,7 @@ class UnclassifiedDeviceRepairFlow(RepairsFlow):
         )
 
     async def async_step_ignore_device(
-        self, user_input: dict[str, Any] | None = None
+        self, _user_input: dict[str, Any] | None = None
     ) -> Any:
         """Add this device_id to the Gateway's Ignore Patterns and drop the issue."""
         hass: HomeAssistant = self.hass
@@ -171,12 +171,14 @@ class UnclassifiedDeviceRepairFlow(RepairsFlow):
 
 
 async def async_create_fix_flow(
-    hass: HomeAssistant,
-    issue_id: str,
+    _hass: HomeAssistant,
+    _issue_id: str,
     data: dict[str, str | int | float | None] | None,
 ) -> RepairsFlow:
     """Create the classification flow for an unclassified_device issue."""
-    assert data is not None
+    if data is None:
+        msg = "Repair issue data missing for unclassified_device flow"
+        raise HomeAssistantError(msg)
     return UnclassifiedDeviceRepairFlow(
         entry_id=str(data["entry_id"]),
         device_id=str(data["device_id"]),

@@ -43,7 +43,13 @@
   },
   "config_subentries": {
     "device": {
-      "title": "Device",
+      "entry_type": "Device",
+      "initiate_flow": {
+        "user": "Add Device"
+      },
+      "abort": {
+        "manual_add_not_supported": "Devices can't be added manually - trigger the device once and classify it from the resulting repair issue instead"
+      },
       "step": {
         "reconfigure": {
           "title": "Edit device",
@@ -69,7 +75,6 @@
   "issues": {
     "unclassified_device": {
       "title": "New RFLink device detected: {device_id}",
-      "description": "RFLink heard a signal from a device it doesn't know yet. Classify it to create its entities, or ignore this issue to stop being asked.",
       "fix_flow": {
         "step": {
           "init": {

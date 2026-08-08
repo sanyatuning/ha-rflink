@@ -3,21 +3,19 @@
 from __future__ import annotations
 
 import asyncio
-from fnmatch import fnmatchcase
 import logging
-from typing import Any
-
-from rflink.parser import PACKET_FIELDS, PACKET_ID_SEP
-from rflink.protocol import ProtocolBase, create_rflink_connection
-from serial import SerialException
+from fnmatch import fnmatchcase
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.const import CONF_DEVICE_ID, CONF_HOST, CONF_PORT
-from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import async_call_later
+from rflink.parser import PACKET_FIELDS, PACKET_ID_SEP
+from rflink.protocol import ProtocolBase, create_rflink_connection
+from serial import SerialException
 
 from .const import (
     CONF_ALIASES,
@@ -37,6 +35,9 @@ from .const import (
     SIGNAL_NEW_SENSOR_FIELD,
 )
 from .utils import identify_event_type
+
+if TYPE_CHECKING:
+    from homeassistant.core import HomeAssistant
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -102,12 +103,12 @@ class RflinkHub:
                     disconnect_callback=self._handle_disconnect,
                     loop=self.hass.loop,
                 )
-        except (SerialException, OSError, TimeoutError):
+        except SerialException, OSError, TimeoutError:
             _LOGGER.warning(
                 "Error connecting to RFLink gateway, reconnecting in %s seconds",
                 DEFAULT_RECONNECT_INTERVAL,
             )
-            self._set_available(False)
+            self._set_available(available=False)
             async_call_later(
                 self.hass, DEFAULT_RECONNECT_INTERVAL, self._async_reconnect_job
             )
@@ -115,20 +116,20 @@ class RflinkHub:
 
         self._transport = transport
         self.protocol = protocol
-        self._set_available(True)
+        self._set_available(available=True)
         _LOGGER.debug("Connected to RFLink gateway")
 
     async def _async_reconnect_job(self, _now: Any) -> None:
         await self.async_connect()
 
-    def _handle_disconnect(self, exc: Exception | None = None) -> None:
+    def _handle_disconnect(self, _exc: Exception | None = None) -> None:
         """Handle an unexpected disconnect by scheduling a reconnect."""
         self.protocol = None
-        self._set_available(False)
+        self._set_available(available=False)
         _LOGGER.warning("Disconnected from RFLink gateway, reconnecting")
         self.hass.async_create_task(self.async_connect(), eager_start=False)
 
-    def _set_available(self, available: bool) -> None:
+    def _set_available(self, *, available: bool) -> None:
         self.available = available
         async_dispatcher_send(
             self.hass, SIGNAL_AVAILABILITY.format(self.entry.entry_id), available
@@ -144,7 +145,8 @@ class RflinkHub:
     ) -> None:
         """Send a command for device_id, repeating as configured."""
         if self.protocol is None:
-            raise HomeAssistantError("Cannot send command, not connected")
+            msg = "Cannot send command, not connected"
+            raise HomeAssistantError(msg)
 
         wait_for_ack = self.entry.data.get(CONF_WAIT_FOR_ACK, DEFAULT_WAIT_FOR_ACK)
         for _ in range(max(repetitions, 1)):

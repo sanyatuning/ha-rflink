@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.cover import (
     ATTR_CURRENT_POSITION,
@@ -12,10 +12,8 @@ from homeassistant.components.cover import (
     CoverEntity,
     CoverState,
 )
-from homeassistant.config_entries import ConfigSubentry
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
-from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
 from .const import (
@@ -27,7 +25,13 @@ from .const import (
     SUBENTRY_TYPE_DEVICE,
 )
 from .entity import RflinkCeEntity
-from .hub import RflinkCeConfigEntry
+
+if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigSubentry
+    from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+
+    from .hub import RflinkCeConfigEntry
 
 INVERT_COMMANDS = {"UP": "DOWN", "DOWN": "UP"}
 POSITION_UPDATE_INTERVAL = 1.0
@@ -68,7 +72,9 @@ class RflinkCeCover(RflinkCeEntity, CoverEntity, RestoreEntity):
         """Initialize, reading the optional Cover Travel Profile from the Device."""
         super().__init__(entry, subentry)
         self._up_time: float | None = subentry.data.get(CONF_UP_TIME)
-        self._down_time: float | None = subentry.data.get(CONF_DOWN_TIME) or self._up_time
+        self._down_time: float | None = (
+            subentry.data.get(CONF_DOWN_TIME) or self._up_time
+        )
         self._invert = bool(subentry.data.get("invert_commands"))
         self._state: bool | None = None
         self._position: int | None = None
@@ -89,17 +95,18 @@ class RflinkCeCover(RflinkCeEntity, CoverEntity, RestoreEntity):
 
     def _handle_event(self, event: dict[str, Any]) -> None:
         """Track position when the physical remote (not HA) moves this cover."""
-        # Never transmit here - that would re-broadcast a command a real remote already sent.
+        # Never transmit here - that would re-broadcast a command a real remote
+        # already sent.
         command = event["command"].lower()
         if command in ("on", "allon", "up"):
             self._state = True
             self.hass.async_create_task(
-                self._async_start_move(100, send_stop=False), eager_start=False
+                self._async_start_move(100), eager_start=False
             )
         elif command in ("off", "alloff", "down"):
             self._state = False
             self.hass.async_create_task(
-                self._async_start_move(0, send_stop=False), eager_start=False
+                self._async_start_move(0), eager_start=False
             )
         elif command == "stop":
             self._cancel_move()
@@ -119,7 +126,9 @@ class RflinkCeCover(RflinkCeEntity, CoverEntity, RestoreEntity):
         if self._move_task is None:
             return self._position
         duration = self._up_time if self._move_to > self._move_from else self._down_time
-        fraction = min((time.monotonic() - self._move_start) / duration, 1) if duration else 1
+        fraction = (
+            min((time.monotonic() - self._move_start) / duration, 1) if duration else 1
+        )
         return round(self._move_from + (self._move_to - self._move_from) * fraction)
 
     @property
@@ -132,17 +141,20 @@ class RflinkCeCover(RflinkCeEntity, CoverEntity, RestoreEntity):
             command = INVERT_COMMANDS.get(command, command)
         await self._async_send_command(command)
 
-    async def async_open_cover(self, **kwargs: Any) -> None:
+    async def async_open_cover(self, **_kwargs: Any) -> None:
+        """Fully open the cover."""
         self._state = True
         await self._async_send_raw("UP")
         await self._async_start_move(100)
 
-    async def async_close_cover(self, **kwargs: Any) -> None:
+    async def async_close_cover(self, **_kwargs: Any) -> None:
+        """Fully close the cover."""
         self._state = False
         await self._async_send_raw("DOWN")
         await self._async_start_move(0)
 
-    async def async_stop_cover(self, **kwargs: Any) -> None:
+    async def async_stop_cover(self, **_kwargs: Any) -> None:
+        """Stop the cover mid-move."""
         self._cancel_move()
         await self._async_send_raw("STOP")
 
@@ -156,9 +168,9 @@ class RflinkCeCover(RflinkCeEntity, CoverEntity, RestoreEntity):
             return
         self._state = target > 0
         await self._async_send_raw("UP" if target > current else "DOWN")
-        await self._async_start_move(target)
+        await self._async_start_move(target, send_stop=True)
 
-    async def _async_start_move(self, target: int, send_stop: bool = True) -> None:
+    async def _async_start_move(self, target: int, *, send_stop: bool = False) -> None:
         """Start tracking a move towards target position, stopping on arrival."""
         if self._up_time is None:
             return
@@ -175,11 +187,12 @@ class RflinkCeCover(RflinkCeEntity, CoverEntity, RestoreEntity):
             / 100
         )
         self._move_task = self.hass.async_create_task(
-            self._async_finish_move(duration, target, send_stop), eager_start=False
+            self._async_finish_move(duration, target, send_stop=send_stop),
+            eager_start=False,
         )
 
     async def _async_finish_move(
-        self, duration: float, target: int, send_stop: bool
+        self, duration: float, target: int, *, send_stop: bool
     ) -> None:
         """Wait for the estimated travel time, pushing position updates as it moves."""
         elapsed = 0.0

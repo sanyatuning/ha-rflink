@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from serial import SerialException
 import voluptuous as vol
-
 from homeassistant.components import usb
 from homeassistant.config_entries import (
     ConfigEntry,
@@ -17,9 +15,16 @@ from homeassistant.config_entries import (
     OptionsFlow,
     SubentryFlowResult,
 )
-from homeassistant.const import CONF_DEVICE_ID, CONF_HOST, CONF_NAME, CONF_PORT, CONF_TYPE
+from homeassistant.const import (
+    CONF_DEVICE_ID,
+    CONF_HOST,
+    CONF_NAME,
+    CONF_PORT,
+    CONF_TYPE,
+)
 from homeassistant.core import callback
 from homeassistant.helpers.selector import TextSelector
+from serial import SerialException
 
 from .const import (
     CONF_ALIASES,
@@ -34,18 +39,21 @@ from .const import (
     SUBENTRY_TYPE_DEVICE,
 )
 
+if TYPE_CHECKING:
+    from homeassistant.core import HomeAssistant
+
 CONF_MANUAL_PATH = "Enter Manually"
 CONNECTION_TIMEOUT = 30
 
 
-class CannotConnect(Exception):
+class CannotConnectError(Exception):
     """Error indicating a connection couldn't be established."""
 
 
 async def _async_validate_connection(
-    hass, *, host: str | None = None, port: str | int | None = None
+    hass: HomeAssistant, *, host: str | None = None, port: str | int | None = None
 ) -> None:
-    """Try connecting to the gateway, raising CannotConnect on failure."""
+    """Try connecting to the gateway, raising CannotConnectError on failure."""
     from rflink.protocol import create_rflink_connection  # noqa: PLC0415
 
     try:
@@ -54,7 +62,7 @@ async def _async_validate_connection(
                 port=port, host=host, loop=hass.loop
             )
     except (SerialException, OSError, TimeoutError) as err:
-        raise CannotConnect from err
+        raise CannotConnectError from err
     transport.close()
 
 
@@ -85,7 +93,7 @@ class RflinkCeConfigFlow(ConfigFlow, domain=DOMAIN):
                 await _async_validate_connection(
                     self.hass, host=user_input[CONF_HOST], port=user_input[CONF_PORT]
                 )
-            except CannotConnect:
+            except CannotConnectError:
                 errors["base"] = "cannot_connect"
             else:
                 return await self._async_finish(
@@ -110,14 +118,15 @@ class RflinkCeConfigFlow(ConfigFlow, domain=DOMAIN):
                 return await self.async_step_setup_serial_manual_path()
             try:
                 await _async_validate_connection(self.hass, port=device)
-            except CannotConnect:
+            except CannotConnectError:
                 errors["base"] = "cannot_connect"
             else:
                 return await self._async_finish({CONF_PORT: device})
 
         ports = await usb.async_scan_serial_ports(self.hass)
         options = {
-            port.device: f"{port.device} - {port.description or 'n/a'}" for port in ports
+            port.device: f"{port.device} - {port.description or 'n/a'}"
+            for port in ports
         }
         options[CONF_MANUAL_PATH] = CONF_MANUAL_PATH
         schema = vol.Schema({vol.Required(CONF_PORT): vol.In(options)})
@@ -133,7 +142,7 @@ class RflinkCeConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             try:
                 await _async_validate_connection(self.hass, port=user_input[CONF_PORT])
-            except CannotConnect:
+            except CannotConnectError:
                 errors["base"] = "cannot_connect"
             else:
                 return await self._async_finish({CONF_PORT: user_input[CONF_PORT]})
@@ -161,14 +170,14 @@ class RflinkCeConfigFlow(ConfigFlow, domain=DOMAIN):
 
     @staticmethod
     @callback
-    def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
+    def async_get_options_flow(_config_entry: ConfigEntry) -> OptionsFlow:
         """Return the options flow for Ignore Patterns."""
         return RflinkCeOptionsFlow()
 
     @classmethod
     @callback
     def async_get_supported_subentry_types(
-        cls, config_entry: ConfigEntry
+        cls, _config_entry: ConfigEntry
     ) -> dict[str, type[ConfigSubentryFlow]]:
         """Return subentry types supported by this integration."""
         return {SUBENTRY_TYPE_DEVICE: DeviceSubentryFlowHandler}
@@ -182,7 +191,9 @@ class RflinkCeOptionsFlow(OptionsFlow):
     ) -> ConfigFlowResult:
         """Edit the Ignore Pattern list."""
         if user_input is not None:
-            patterns = [p.strip() for p in user_input[CONF_IGNORE_PATTERNS] if p.strip()]
+            patterns = [
+                p.strip() for p in user_input[CONF_IGNORE_PATTERNS] if p.strip()
+            ]
             return self.async_create_entry(data={CONF_IGNORE_PATTERNS: patterns})
 
         current = self.config_entry.options.get(CONF_IGNORE_PATTERNS, [])
@@ -199,8 +210,12 @@ class RflinkCeOptionsFlow(OptionsFlow):
 class DeviceSubentryFlowHandler(ConfigSubentryFlow):
     """Edit an already-classified Device's name/aliases/options."""
 
-    # Devices are created via repairs.py's classify flow, not async_step_user -
-    # there's nothing to add before a device has transmitted at least once.
+    async def async_step_user(
+        self, _user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        """Devices are created by repairs.py's classify flow, not manually."""
+        return self.async_abort(reason="manual_add_not_supported")
+
     async def async_step_reconfigure(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:

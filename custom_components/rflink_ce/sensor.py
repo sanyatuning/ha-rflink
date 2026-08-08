@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -10,12 +10,15 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.config_entries import ConfigSubentry
-from homeassistant.const import PERCENTAGE, UnitOfPressure, UnitOfSpeed, UnitOfTemperature
+from homeassistant.const import (
+    PERCENTAGE,
+    UnitOfPressure,
+    UnitOfSpeed,
+    UnitOfTemperature,
+)
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import EntityCategory
-from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util import dt as dt_util
 
 from .const import (
@@ -28,7 +31,12 @@ from .const import (
     SUBENTRY_TYPE_DEVICE,
 )
 from .entity import RflinkCeEntity
-from .hub import RflinkCeConfigEntry
+
+if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigSubentry
+    from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+
+    from .hub import RflinkCeConfigEntry
 
 SENSOR_TYPES: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
