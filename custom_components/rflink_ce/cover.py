@@ -101,12 +101,12 @@ class RflinkCeCover(RflinkCeEntity, CoverEntity, RestoreEntity):
         if command in ("on", "allon", "up"):
             self._state = True
             self.hass.async_create_task(
-                self._async_start_move(100), eager_start=False
+                self._async_start_move(100, send_stop=False), eager_start=False
             )
         elif command in ("off", "alloff", "down"):
             self._state = False
             self.hass.async_create_task(
-                self._async_start_move(0), eager_start=False
+                self._async_start_move(0, send_stop=False), eager_start=False
             )
         elif command == "stop":
             self._cancel_move()
@@ -145,13 +145,13 @@ class RflinkCeCover(RflinkCeEntity, CoverEntity, RestoreEntity):
         """Fully open the cover."""
         self._state = True
         await self._async_send_raw("UP")
-        await self._async_start_move(100)
+        await self._async_start_move(100, send_stop=False)
 
     async def async_close_cover(self, **_kwargs: Any) -> None:
         """Fully close the cover."""
         self._state = False
         await self._async_send_raw("DOWN")
-        await self._async_start_move(0)
+        await self._async_start_move(0, send_stop=False)
 
     async def async_stop_cover(self, **_kwargs: Any) -> None:
         """Stop the cover mid-move."""
@@ -170,7 +170,7 @@ class RflinkCeCover(RflinkCeEntity, CoverEntity, RestoreEntity):
         await self._async_send_raw("UP" if target > current else "DOWN")
         await self._async_start_move(target, send_stop=True)
 
-    async def _async_start_move(self, target: int, *, send_stop: bool = False) -> None:
+    async def _async_start_move(self, target: int, *, send_stop: bool) -> None:
         """Start tracking a move towards target position, stopping on arrival."""
         if self._up_time is None:
             return
