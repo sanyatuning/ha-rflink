@@ -1,0 +1,7 @@
+{
+  "entity": {
+    "sensor": {
+      "battery": { "default": "mdi:battery" }
+    }
+  }
+}

@@ -1,0 +1,107 @@
+{
+  "entity": {
+    "sensor": {
+      "temperature": { "name": "Temperature" },
+      "humidity": { "name": "Humidity" },
+      "battery": { "name": "Battery" },
+      "barometric_pressure": { "name": "Barometric pressure" },
+      "windspeed": { "name": "Wind speed" },
+      "update_time": { "name": "Last update" }
+    }
+  },
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to an RFLink gateway",
+        "data": { "type": "Connection type" }
+      },
+      "setup_network": {
+        "title": "Network connection",
+        "data": { "host": "Host", "port": "Port" }
+      },
+      "setup_serial": {
+        "title": "Serial port",
+        "data": { "port": "Serial device" }
+      },
+      "setup_serial_manual_path": {
+        "title": "Serial port path",
+        "data": { "port": "Path" }
+      }
+    },
+    "error": { "cannot_connect": "Failed to connect to the gateway" },
+    "abort": { "already_configured": "This gateway is already configured" }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Ignore Patterns",
+        "data": {
+          "ignore_patterns": "Device ID wildcard patterns to ignore (e.g. neighbor_*)"
+        }
+      }
+    }
+  },
+  "config_subentries": {
+    "device": {
+      "title": "Device",
+      "step": {
+        "reconfigure": {
+          "title": "Edit device",
+          "data": {
+            "name": "Name",
+            "aliases": "Aliases (comma-separated device IDs)",
+            "group_aliases": "Group aliases",
+            "nogroup_aliases": "No-group aliases",
+            "fire_event": "Fire an event on the event bus for every command",
+            "signal_repetitions": "Signal repetitions",
+            "up_time": "Time to fully open (seconds)",
+            "down_time": "Time to fully close (seconds, defaults to up_time)"
+          },
+          "data_description": {
+            "aliases": "Other RFLink device IDs that should control this same entity exactly like its main ID, for both individual commands (on/off/up/down) and group broadcasts. Use this when RFLink reports the same physical device under more than one ID.",
+            "group_aliases": "Other RFLink device IDs that should control this entity ONLY when a group/house-code broadcast is received (e.g. a KlikAanKlikUit 'All On' / 'All Off' remote button). Individual on/off/up/down commands from these IDs are ignored.",
+            "nogroup_aliases": "Other RFLink device IDs that should control this entity ONLY for individual on/off/up/down commands. Group/house-code broadcasts ('All On' / 'All Off') from these IDs are ignored."
+          }
+        }
+      }
+    }
+  },
+  "issues": {
+    "unclassified_device": {
+      "title": "New RFLink device detected: {device_id}",
+      "description": "RFLink heard a signal from a device it doesn't know yet. Classify it to create its entities, or ignore this issue to stop being asked.",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "New device: {device_id}",
+            "menu_options": {
+              "classify": "Classify this device",
+              "ignore_device": "Ignore this device permanently"
+            }
+          },
+          "classify": {
+            "title": "Classify {device_id}",
+            "description": "Received signal:\n```\n{debug_info}\n```",
+            "data": {
+              "name": "Name",
+              "entity_domain": "Device type",
+              "aliases": "Aliases (comma-separated device IDs)",
+              "group_aliases": "Group aliases",
+              "nogroup_aliases": "No-group aliases",
+              "fire_event": "Fire an event on the event bus for every command",
+              "signal_repetitions": "Signal repetitions",
+              "up_time": "Time to fully open (seconds, cover only)",
+              "down_time": "Time to fully close (seconds, cover only, defaults to up_time)"
+            },
+            "data_description": {
+              "aliases": "Other RFLink device IDs that should control this same entity exactly like its main ID, for both individual commands (on/off/up/down) and group broadcasts. Use this when RFLink reports the same physical device under more than one ID.",
+              "group_aliases": "Other RFLink device IDs that should control this entity ONLY when a group/house-code broadcast is received (e.g. a KlikAanKlikUit 'All On' / 'All Off' remote button). Individual on/off/up/down commands from these IDs are ignored.",
+              "nogroup_aliases": "Other RFLink device IDs that should control this entity ONLY for individual on/off/up/down commands. Group/house-code broadcasts ('All On' / 'All Off') from these IDs are ignored."
+            }
+          }
+        },
+        "abort": { "gateway_removed": "The RFLink gateway for this device was removed" }
+      }
+    }
+  }
+}

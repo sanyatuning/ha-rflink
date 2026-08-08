@@ -1,0 +1,12 @@
+{
+  "domain": "rflink_ce",
+  "name": "RFLink CE",
+  "codeowners": [],
+  "config_flow": true,
+  "documentation": "https://github.com/example/rflink_ce",
+  "integration_type": "hub",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/example/rflink_ce/issues",
+  "requirements": ["rflink==0.0.68"],
+  "version": "0.1.0"
+}
