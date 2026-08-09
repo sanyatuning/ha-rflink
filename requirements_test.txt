@@ -1,2 +1,11 @@
--r requirements_dev.txt
+# pytest-homeassistant-custom-component pins an exact matching homeassistant
+# version itself; don't pull in requirements_dev.txt's separate pin here or
+# the two will fight over which homeassistant version gets installed.
 pytest-homeassistant-custom-component
+
+# homeassistant.components.usb, imported by config_flow.py, needs these at
+# runtime but doesn't declare them as install_requires.
+aiousbwatcher
+pyserial
+pyserial-asyncio-fast
+rflink==0.0.68
