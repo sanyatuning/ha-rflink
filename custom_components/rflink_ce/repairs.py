@@ -28,9 +28,10 @@ from .const import (
     CONF_UP_TIME,
     DOMAIN,
     ENTITY_DOMAIN_COVER,
+    ENTITY_DOMAIN_IGNORE,
     ENTITY_DOMAIN_SENSOR,
-    ENTITY_DOMAINS,
     ISSUE_ID_UNCLASSIFIED_DEVICE,
+    REPAIR_ENTITY_DOMAINS,
     SIGNAL_NEW_DEVICE,
     SUBENTRY_TYPE_DEVICE,
 )
@@ -70,74 +71,61 @@ class UnclassifiedDeviceRepairFlow(RepairsFlow):
         self._suggested_domain = _suggest_domain(raw_data)
         self._debug_info = _format_debug_info(raw_data)
 
-    async def async_step_init(self, _user_input: dict[str, Any] | None = None) -> Any:
-        """Let the user choose to classify the device or ignore it for good."""
-        return self.async_show_menu(
-            step_id="init",
-            menu_options=["classify", "ignore_device"],
-            description_placeholders={"device_id": self._device_id},
-        )
-
-    async def async_step_ignore_device(
-        self, _user_input: dict[str, Any] | None = None
-    ) -> Any:
-        """Add this device_id to the Gateway's Ignore Patterns and drop the issue."""
-        hass: HomeAssistant = self.hass
-        entry = hass.config_entries.async_get_entry(self._entry_id)
-        if entry is None:
-            return self.async_abort(reason="gateway_removed")
-
+    def _ignore(self, hass: HomeAssistant, entry: Any) -> None:
+        """Add this device_id to the Gateway's Ignore Patterns."""
         patterns = list(entry.options.get(CONF_IGNORE_PATTERNS, []))
         if self._device_id not in patterns:
             patterns.append(self._device_id)
             hass.config_entries.async_update_entry(
                 entry, options={**entry.options, CONF_IGNORE_PATTERNS: patterns}
             )
+
+    def _drop_issue(self, hass: HomeAssistant, entry: Any) -> None:
+        """Forget this device's history and dismiss its repair issue."""
         entry.runtime_data.clear_unclassified_history(self._device_id)
         ir.async_delete_issue(
             hass,
             DOMAIN,
             ISSUE_ID_UNCLASSIFIED_DEVICE.format(self._entry_id, self._device_id),
         )
-        return self.async_create_entry(data={})
 
-    async def async_step_classify(
-        self, user_input: dict[str, Any] | None = None
-    ) -> Any:
-        """Collect classification and create the Device (subentry)."""
+    def _classify(self, hass: HomeAssistant, entry: Any, user_input: dict[str, Any]) -> None:
+        """Create the Device (subentry) from the submitted classification."""
+        data = {
+            CONF_DEVICE_ID: self._device_id,
+            CONF_ENTITY_DOMAIN: user_input[CONF_ENTITY_DOMAIN],
+            CONF_ALIASES: _split(user_input.get(CONF_ALIASES)),
+            CONF_GROUP_ALIASES: _split(user_input.get(CONF_GROUP_ALIASES)),
+            CONF_NOGROUP_ALIASES: _split(user_input.get(CONF_NOGROUP_ALIASES)),
+            CONF_FIRE_EVENT: user_input.get(CONF_FIRE_EVENT, False),
+            CONF_SIGNAL_REPETITIONS: user_input.get(CONF_SIGNAL_REPETITIONS),
+            CONF_UP_TIME: user_input.get(CONF_UP_TIME),
+            CONF_DOWN_TIME: user_input.get(CONF_DOWN_TIME),
+        }
+        subentry = ConfigSubentry(
+            data=MappingProxyType(data),
+            subentry_type=SUBENTRY_TYPE_DEVICE,
+            title=user_input[CONF_NAME],
+            unique_id=self._device_id,
+        )
+        hass.config_entries.async_add_subentry(entry, subentry)
+        async_dispatcher_send(hass, SIGNAL_NEW_DEVICE.format(entry.entry_id), subentry)
+        if data[CONF_ENTITY_DOMAIN] == ENTITY_DOMAIN_SENSOR:
+            entry.runtime_data.seed_sensor_fields(self._device_id, subentry)
+
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> Any:
+        """Classify the device, or ignore it, in a single form."""
+        hass: HomeAssistant = self.hass
+        entry = hass.config_entries.async_get_entry(self._entry_id)
+        if entry is None:
+            return self.async_abort(reason="gateway_removed")
+
         if user_input is not None:
-            hass: HomeAssistant = self.hass
-            entry = hass.config_entries.async_get_entry(self._entry_id)
-            if entry is None:
-                return self.async_abort(reason="gateway_removed")
-
-            data = {
-                CONF_DEVICE_ID: self._device_id,
-                CONF_ENTITY_DOMAIN: user_input[CONF_ENTITY_DOMAIN],
-                CONF_ALIASES: _split(user_input.get(CONF_ALIASES)),
-                CONF_GROUP_ALIASES: _split(user_input.get(CONF_GROUP_ALIASES)),
-                CONF_NOGROUP_ALIASES: _split(user_input.get(CONF_NOGROUP_ALIASES)),
-                CONF_FIRE_EVENT: user_input.get(CONF_FIRE_EVENT, False),
-                CONF_SIGNAL_REPETITIONS: user_input.get(CONF_SIGNAL_REPETITIONS),
-                CONF_UP_TIME: user_input.get(CONF_UP_TIME),
-                CONF_DOWN_TIME: user_input.get(CONF_DOWN_TIME),
-            }
-            subentry = ConfigSubentry(
-                data=MappingProxyType(data),
-                subentry_type=SUBENTRY_TYPE_DEVICE,
-                title=user_input[CONF_NAME],
-                unique_id=self._device_id,
-            )
-            hass.config_entries.async_add_subentry(entry, subentry)
-            async_dispatcher_send(
-                hass, SIGNAL_NEW_DEVICE.format(entry.entry_id), subentry
-            )
-            entry.runtime_data.clear_unclassified_history(self._device_id)
-            ir.async_delete_issue(
-                hass,
-                DOMAIN,
-                ISSUE_ID_UNCLASSIFIED_DEVICE.format(self._entry_id, self._device_id),
-            )
+            if user_input[CONF_ENTITY_DOMAIN] == ENTITY_DOMAIN_IGNORE:
+                self._ignore(hass, entry)
+            else:
+                self._classify(hass, entry, user_input)
+            self._drop_issue(hass, entry)
             return self.async_create_entry(data={})
 
         entity_domain_key: Any = (
@@ -149,7 +137,7 @@ class UnclassifiedDeviceRepairFlow(RepairsFlow):
             {
                 vol.Required(CONF_NAME, default=self._device_id): str,
                 entity_domain_key: SelectSelector(
-                    SelectSelectorConfig(options=ENTITY_DOMAINS)
+                    SelectSelectorConfig(options=REPAIR_ENTITY_DOMAINS)
                 ),
                 vol.Optional(CONF_ALIASES): str,
                 vol.Optional(CONF_GROUP_ALIASES): str,
@@ -161,7 +149,7 @@ class UnclassifiedDeviceRepairFlow(RepairsFlow):
             }
         )
         return self.async_show_form(
-            step_id="classify",
+            step_id="init",
             data_schema=schema,
             description_placeholders={
                 "device_id": self._device_id,

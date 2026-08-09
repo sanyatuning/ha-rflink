@@ -73,6 +73,7 @@ class RflinkHub:
         self._known_sensor_fields: dict[str, set[str]] = {}
         self._transport: asyncio.BaseTransport | None = None
         self._unclassified_history: dict[str, dict[str, str]] = {}
+        self._unclassified_sensor_events: dict[str, dict[str, dict[str, Any]]] = {}
 
     def subentry_for_device_id(self, device_id: str) -> ConfigSubentry | None:
         """Find the Device (subentry) that owns this RFLink device id, if classified."""
@@ -190,6 +191,15 @@ class RflinkHub:
     def clear_unclassified_history(self, device_id: str) -> None:
         """Drop accumulated debug history once device_id is classified or ignored."""
         self._unclassified_history.pop(device_id, None)
+        self._unclassified_sensor_events.pop(device_id, None)
+
+    def seed_sensor_fields(self, device_id: str, subentry: ConfigSubentry) -> None:
+        """Create entities right away for every field already seen before classification."""
+        for field, event in self._unclassified_sensor_events.get(device_id, {}).items():
+            self._known_sensor_fields.setdefault(subentry.subentry_id, set()).add(field)
+            async_dispatcher_send(
+                self.hass, SIGNAL_NEW_SENSOR_FIELD.format(subentry.subentry_id), event
+            )
 
     def _async_raise_unclassified_issue(
         self, device_id: str, event: dict[str, Any]
@@ -203,6 +213,7 @@ class RflinkHub:
             value = event.get(EVENT_KEY_VALUE)
             unit = event.get(EVENT_KEY_UNIT) or ""
             history[f"sensor:{field}"] = f"sensor: {field}  value: {value}{unit}"
+            self._unclassified_sensor_events.setdefault(device_id, {})[field] = event
         elif EVENT_KEY_COMMAND in event:
             history["command"] = f"command: {event[EVENT_KEY_COMMAND]}"
 

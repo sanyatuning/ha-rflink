@@ -79,13 +79,6 @@
         "step": {
           "init": {
             "title": "New device: {device_id}",
-            "menu_options": {
-              "classify": "Classify this device",
-              "ignore_device": "Ignore this device permanently"
-            }
-          },
-          "classify": {
-            "title": "Classify {device_id}",
             "description": "Received signal:\n```\n{debug_info}\n```",
             "data": {
               "name": "Name",
