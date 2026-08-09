@@ -95,7 +95,7 @@ class UnclassifiedDeviceRepairFlow(RepairsFlow):
         """Create the Device (subentry) from the submitted classification."""
         data = {
             CONF_DEVICE_ID: self._device_id,
-            CONF_ENTITY_DOMAIN: user_input[CONF_ENTITY_DOMAIN],
+            CONF_ENTITY_DOMAIN: user_input.get(CONF_ENTITY_DOMAIN),
             CONF_ALIASES: _split(user_input.get(CONF_ALIASES)),
             CONF_GROUP_ALIASES: _split(user_input.get(CONF_GROUP_ALIASES)),
             CONF_NOGROUP_ALIASES: _split(user_input.get(CONF_NOGROUP_ALIASES)),
@@ -107,7 +107,7 @@ class UnclassifiedDeviceRepairFlow(RepairsFlow):
         subentry = ConfigSubentry(
             data=MappingProxyType(data),
             subentry_type=SUBENTRY_TYPE_DEVICE,
-            title=user_input[CONF_NAME],
+            title=user_input.get(CONF_NAME, ""),
             unique_id=self._device_id,
         )
         hass.config_entries.async_add_subentry(entry, subentry)
@@ -122,7 +122,7 @@ class UnclassifiedDeviceRepairFlow(RepairsFlow):
         if entry is None:
             return self.async_abort(reason="gateway_removed")
 
-        if user_input is not None:
+        if user_input is not None and CONF_ENTITY_DOMAIN in user_input:
             if user_input[CONF_ENTITY_DOMAIN] == ENTITY_DOMAIN_IGNORE:
                 self._ignore(hass, entry)
             else:
@@ -130,7 +130,7 @@ class UnclassifiedDeviceRepairFlow(RepairsFlow):
             self._drop_issue(hass, entry)
             return self.async_create_entry(data={})
 
-        entity_domain_key: Any = (
+        entity_domain_key: vol.Marker = (
             vol.Optional(CONF_ENTITY_DOMAIN, default=self._suggested_domain)
             if self._suggested_domain
             else vol.Required(CONF_ENTITY_DOMAIN)

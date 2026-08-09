@@ -76,6 +76,26 @@ async def test_init_step_shows_form_with_suggested_domain(hass: HomeAssistant) -
     assert schema_keys[CONF_ENTITY_DOMAIN].default() == ENTITY_DOMAIN_COVER
 
 
+async def test_init_step_shows_form_when_flow_manager_seeds_issue_id(
+    hass: HomeAssistant,
+) -> None:
+    """
+    The flow manager calls the init step with {"issue_id": ...}, not None.
+
+    homeassistant.components.repairs.issue_handler.RepairsFlowManager.async_create_flow
+    passes `data={"issue_id": issue_id}` straight through to `FlowManager.async_init`,
+    which forwards it as `user_input` to the flow's `init_step` on the very first call.
+    A truthy-but-empty-of-our-keys dict here must not be mistaken for a submission.
+    """
+    entry = _entry(hass)
+    flow = await _start_flow(hass, entry, "device_1", {"device_id": "device_1"})
+
+    result = await flow.async_step_init({"issue_id": "unclassified_device_x_device_1"})
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "init"
+
+
 async def test_classify_creates_subentry_and_drops_issue(
     hass: HomeAssistant, issue_registry: ir.IssueRegistry
 ) -> None:
