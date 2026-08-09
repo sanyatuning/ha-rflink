@@ -104,7 +104,7 @@ class RflinkHub:
                     disconnect_callback=self._handle_disconnect,
                     loop=self.hass.loop,
                 )
-        except SerialException, OSError, TimeoutError:
+        except (SerialException, OSError, TimeoutError):
             _LOGGER.warning(
                 "Error connecting to RFLink gateway, reconnecting in %s seconds",
                 DEFAULT_RECONNECT_INTERVAL,
@@ -194,7 +194,7 @@ class RflinkHub:
         self._unclassified_sensor_events.pop(device_id, None)
 
     def seed_sensor_fields(self, device_id: str, subentry: ConfigSubentry) -> None:
-        """Create entities right away for every field already seen before classification."""
+        """Create entities now for every field already seen before classification."""
         for field, event in self._unclassified_sensor_events.get(device_id, {}).items():
             self._known_sensor_fields.setdefault(subentry.subentry_id, set()).add(field)
             async_dispatcher_send(

@@ -89,7 +89,9 @@ class UnclassifiedDeviceRepairFlow(RepairsFlow):
             ISSUE_ID_UNCLASSIFIED_DEVICE.format(self._entry_id, self._device_id),
         )
 
-    def _classify(self, hass: HomeAssistant, entry: Any, user_input: dict[str, Any]) -> None:
+    def _classify(
+        self, hass: HomeAssistant, entry: Any, user_input: dict[str, Any]
+    ) -> None:
         """Create the Device (subentry) from the submitted classification."""
         data = {
             CONF_DEVICE_ID: self._device_id,
