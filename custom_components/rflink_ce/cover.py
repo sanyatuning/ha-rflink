@@ -119,6 +119,17 @@ class RflinkCeCover(RflinkCeEntity, CoverEntity, RestoreEntity):
         return None if self._state is None else not self._state
 
     @property
+    def is_opening(self) -> bool:
+        """Return if a tracked move is heading up."""
+        # ponytail: only known while a timed move runs, so needs a Travel Profile.
+        return self._move_task is not None and self._move_to > self._move_from
+
+    @property
+    def is_closing(self) -> bool:
+        """Return if a tracked move is heading down."""
+        return self._move_task is not None and self._move_to < self._move_from
+
+    @property
     def current_cover_position(self) -> int | None:
         """Return the current position, estimated from elapsed travel time."""
         if self._up_time is None:
@@ -146,17 +157,20 @@ class RflinkCeCover(RflinkCeEntity, CoverEntity, RestoreEntity):
         self._state = True
         await self._async_send_raw("UP")
         await self._async_start_move(100, send_stop=False)
+        self.async_write_ha_state()
 
     async def async_close_cover(self, **_kwargs: Any) -> None:
         """Fully close the cover."""
         self._state = False
         await self._async_send_raw("DOWN")
         await self._async_start_move(0, send_stop=False)
+        self.async_write_ha_state()
 
     async def async_stop_cover(self, **_kwargs: Any) -> None:
         """Stop the cover mid-move."""
         self._cancel_move()
         await self._async_send_raw("STOP")
+        self.async_write_ha_state()
 
     async def async_set_cover_position(self, **kwargs: Any) -> None:
         """Move the cover to a specific position, timed from the current one."""
@@ -169,6 +183,7 @@ class RflinkCeCover(RflinkCeEntity, CoverEntity, RestoreEntity):
         self._state = target > 0
         await self._async_send_raw("UP" if target > current else "DOWN")
         await self._async_start_move(target, send_stop=True)
+        self.async_write_ha_state()
 
     async def _async_start_move(self, target: int, *, send_stop: bool) -> None:
         """Start tracking a move towards target position, stopping on arrival."""
