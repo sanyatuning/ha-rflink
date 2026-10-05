@@ -194,7 +194,11 @@ class RflinkCeOptionsFlow(OptionsFlow):
             patterns = [
                 p.strip() for p in user_input[CONF_IGNORE_PATTERNS] if p.strip()
             ]
-            return self.async_create_entry(data={CONF_IGNORE_PATTERNS: patterns})
+            # OptionsFlow replaces the whole options dict, so carry the other
+            # settings (e.g. the pairing mode switch) over untouched.
+            return self.async_create_entry(
+                data={**self.config_entry.options, CONF_IGNORE_PATTERNS: patterns}
+            )
 
         current = self.config_entry.options.get(CONF_IGNORE_PATTERNS, [])
         schema = vol.Schema(

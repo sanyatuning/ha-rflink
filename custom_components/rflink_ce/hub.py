@@ -20,7 +20,9 @@ from serial import SerialException
 from .const import (
     CONF_ALIASES,
     CONF_IGNORE_PATTERNS,
+    CONF_PAIRING_MODE,
     CONF_WAIT_FOR_ACK,
+    DEFAULT_PAIRING_MODE,
     DEFAULT_RECONNECT_INTERVAL,
     DEFAULT_WAIT_FOR_ACK,
     DOMAIN,
@@ -89,6 +91,11 @@ class RflinkHub:
         """Return True if device_id matches a configured Ignore Pattern."""
         patterns = self.entry.options.get(CONF_IGNORE_PATTERNS, [])
         return any(fnmatchcase(device_id, pattern) for pattern in patterns)
+
+    @property
+    def pairing_enabled(self) -> bool:
+        """Return whether newly-heard devices should raise a repair issue."""
+        return self.entry.options.get(CONF_PAIRING_MODE, DEFAULT_PAIRING_MODE)
 
     async def async_connect(self) -> None:
         """Open the connection to the gateway, retrying on failure."""
@@ -166,7 +173,9 @@ class RflinkHub:
         subentry = self.subentry_for_device_id(device_id)
 
         if subentry is None:
-            if not self.is_ignored(device_id):
+            # Pairing mode off: drop signals from unknown devices instead of
+            # raising (or refreshing) a repair issue for them.
+            if self.pairing_enabled and not self.is_ignored(device_id):
                 self._async_raise_unclassified_issue(device_id, event)
             return
 

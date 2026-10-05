@@ -21,7 +21,7 @@ Core `rflink` is YAML-only, has no config flow, and requires you to hand-declare
 
 ## Adding devices
 
-Devices are **not** added manually. The gateway only knows a device exists once it hears a signal from it:
+Devices are **not** added manually. The gateway only knows a device exists once it hears a signal from it, and only raises a repair issue while **Pairing mode** is on (see below):
 
 1. Trigger the device once — press a button on its remote, or wait for a sensor to transmit.
 2. A repair issue appears: **Settings → System → Repairs → "New RFLink device detected: `<id>`"**.
@@ -30,6 +30,15 @@ Devices are **not** added manually. The gateway only knows a device exists once 
 5. Fill in a name and, optionally, advanced options (see below), and submit. The device now appears under **Settings → Devices & Services → RFLink CE** with its entities.
 
 **A device's type can't be changed later** — remove it and let it get re-detected to reclassify. This is deliberate: switching a device between `cover` and `sensor` after the fact would mean tearing down and rebuilding a completely different entity shape anyway.
+
+### Pairing mode
+
+The Gateway's own device has a **Pairing mode** switch (on by default):
+
+- **On** — every device the gateway hears for the first time raises a repair issue, as described above.
+- **Off** — signals from devices that aren't classified (or ignored) are dropped silently: no new repair issues are created, so a neighbour's remote can't flood **Settings → System → Repairs**. Already-classified devices keep working normally.
+
+The setting is stored on the Gateway, so it survives restarts, and repair issues raised while pairing mode was on stay until you classify or ignore them.
 
 ### Noisy / unwanted devices
 
@@ -64,6 +73,6 @@ One entity per measurement field (temperature, humidity, battery, wind speed, ba
 
 ## Limitations
 
-- Only `cover` and `sensor` platforms exist. `switch`, `light`, and `binary_sensor` (available in core `rflink`) aren't implemented.
+- Only `cover` and `sensor` device types exist: you can't classify a device as `switch`, `light`, or `binary_sensor` (available in core `rflink`). The `switch` platform itself only carries the Gateway's own Pairing mode switch.
 - No automatic USB-plug discovery — RFLink dongles use generic USB-serial chips (e.g. CH340) shared by unrelated hardware, so there's no safe way to auto-detect one being plugged in. Set up the gateway manually instead; the serial-port picker will still list it.
 - Group/no-group alias matching isn't implemented yet (see above).

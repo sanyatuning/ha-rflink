@@ -1,5 +1,8 @@
 {
   "entity": {
+    "switch": {
+      "pairing_mode": { "default": "mdi:link-plus" }
+    },
     "sensor": {
       "battery": { "default": "mdi:battery" }
     }
