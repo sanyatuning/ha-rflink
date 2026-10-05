@@ -8,4 +8,4 @@ pytest-homeassistant-custom-component
 aiousbwatcher
 pyserial
 pyserial-asyncio-fast
-rflink==0.0.68
+rflink>=0.0.68
