@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
     from .hub import RflinkCeConfigEntry
 
-PLATFORMS = ["cover", "sensor"]
+PLATFORMS = ["cover", "sensor", "switch"]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: RflinkCeConfigEntry) -> bool:

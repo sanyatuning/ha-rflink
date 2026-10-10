@@ -1,5 +1,8 @@
 {
   "entity": {
+    "switch": {
+      "pairing_mode": { "name": "Pairing mode" }
+    },
     "sensor": {
       "temperature": { "name": "Temperature" },
       "humidity": { "name": "Humidity" },
